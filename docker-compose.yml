@@ -1,0 +1,19 @@
+services:
+  music-bot:
+    build: .
+    container_name: lala-music-bot
+    restart: unless-stopped
+    init: true
+    env_file:
+      - .env
+    environment:
+      - STATE_DIR=/data
+    volumes:
+      - music_bot_data:/data
+      - ./avatar:/app/avatar:ro
+    security_opt:
+      - no-new-privileges:true
+    mem_limit: 1g
+
+volumes:
+  music_bot_data:
