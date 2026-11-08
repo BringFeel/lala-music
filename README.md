@@ -11,7 +11,7 @@
 
 Bot de música para [Lala](https://github.com/eeegoloauq/lala). Se conecta a un canal de voz, reproduce audio mediante LiveKit y permite controlar la reproducción desde el chat.
 
-[![Video Demo](./github_media/demo_preview.png)](./github_media/demo.mp4)
+https://github.com/user-attachments/assets/55b24a7c-d553-4de1-8da5-3fbb2e8d56f4
 
 > [!IMPORTANT]  
 > Este bot fue completamente desarrollado mediante Inteligencia Artificial (IA).
