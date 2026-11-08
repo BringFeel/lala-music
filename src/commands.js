@@ -39,7 +39,7 @@ export function createCommandHandler({
           } else {
             say(t('commands.play.added_many', { count: tracks.length }));
           }
-          await stats.recordSong().catch((error) => {
+          await stats.recordSong(tracks.length).catch((error) => {
             console.error(t('stats.save_failed', { message: error.message }));
           });
           return;

@@ -72,8 +72,8 @@ export class Stats {
     await this.save();
   }
 
-  async recordSong() {
-    this.songsPlayed += 1;
+  async recordSong(count = 1) {
+    this.songsPlayed += count;
     await this.save();
   }
 
