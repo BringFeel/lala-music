@@ -26,6 +26,42 @@ function cleanError(error) {
   return line.length > 300 ? `${line.slice(0, 300)}...` : line;
 }
 
+export async function resolve(input, signal) {
+  if (!isLink(input)) {
+    return [{ input, title: null }];
+  }
+
+  let result;
+  try {
+    result = await youtubedl.exec(input, {
+      dumpSingleJson: true,
+      flatPlaylist: true,
+      noWarnings: true,
+    }, { signal });
+  } catch (error) {
+    throw new Error(cleanError(error));
+  }
+
+  let data;
+  try {
+    data = JSON.parse(String(result.stdout ?? ''));
+  } catch {
+    throw new Error('yt-dlp no devolvió información válida');
+  }
+
+  const entries = Array.isArray(data.entries) ? data.entries.filter(Boolean) : [];
+  if (data._type === 'playlist' && entries.length > 0) {
+    return entries
+      .map((entry) => ({
+        input: entry.url ?? entry.webpage_url ?? null,
+        title: entry.title ?? null,
+      }))
+      .filter((entry) => entry.input);
+  }
+
+  return [{ input, title: data.title ?? null }];
+}
+
 export async function download(input, signal) {
   const dir = join(BASE_DIR, randomUUID());
   await mkdir(dir, { recursive: true });
