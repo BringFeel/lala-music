@@ -9,29 +9,37 @@ const FRAME_BYTES = FRAME_SAMPLES * 2;
 const FRAME_MS = (FRAME_SAMPLES / SAMPLE_RATE) * 1000;
 
 export class MusicPlayer {
-  constructor({ source, say, ffmpegPath = 'ffmpeg' }) {
+  constructor({ source, say, ffmpegPath = 'ffmpeg', onError }) {
     this.source = source;
     this.say = say;
     this.ffmpegPath = ffmpegPath;
+    this.onError = onError ?? ((error) => console.error(error));
     this.queue = [];
     this.current = null;
     this.running = false;
   }
 
   enqueue(input, requestedBy) {
-    const item = {
-      input,
+    return this.enqueueAll([{ input, title: null }], requestedBy);
+  }
+
+  enqueueAll(tracks, requestedBy) {
+    const position = this.queue.length + (this.current ? 1 : 0);
+    const items = tracks.map((track) => ({
+      input: track.input,
       requestedBy,
       controller: new AbortController(),
       aborted: false,
       proc: null,
       dir: null,
-    };
-    this.queue.push(item);
+    }));
+    if (items.length === 0) return position;
+
+    this.queue.push(...items);
     void this.run().catch((error) => {
-      this.say(`Error: ${error.message}`);
+      this.onError(error, 'Error en el reproductor');
     });
-    return this.queue.length + (this.current ? 1 : 0);
+    return position + items.length;
   }
 
   skip() {
@@ -73,7 +81,7 @@ export class MusicPlayer {
           this.say(`Reproduciendo: ${title}`);
           await this.play(file, item);
         } catch (error) {
-          if (!item.aborted) this.say(`Error: ${error.message}`);
+          if (!item.aborted) this.onError(error, `Error al reproducir "${item.input}"`);
         } finally {
           this.current = null;
           await removeDownload(item.dir).catch(() => {});

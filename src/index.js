@@ -111,13 +111,20 @@ async function startSession(lala, roomInfo, avatar, stats) {
     room.localParticipant?.sendText(text, { topic: 'lk.chat' }).catch(() => {});
   };
 
-  const player = new MusicPlayer({ source, say, ffmpegPath: config.ffmpegPath });
+  const reportError = (error, context) => {
+    console.error(context ? `${context}: ${error.message}` : error.message);
+    if (error?.stack) console.error(error.stack);
+    say('Ocurrió un error inesperado.');
+  };
+
+  const player = new MusicPlayer({ source, say, ffmpegPath: config.ffmpegPath, onError: reportError });
   const handle = createCommandHandler({
     player,
     say,
     stats,
     prefix: config.commandPrefix,
     botName: config.botName,
+    onError: reportError,
   });
 
   room.registerTextStreamHandler('lk.chat', async (reader, participant) => {
