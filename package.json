@@ -1,0 +1,19 @@
+{
+  "name": "lala-music-bot",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "description": "Simple yt-dlp music bot for a Lala voice server",
+  "main": "src/index.js",
+  "scripts": {
+    "start": "node src/index.js"
+  },
+  "engines": {
+    "node": ">=20"
+  },
+  "dependencies": {
+    "@livekit/rtc-node": "^1.2.1",
+    "dotenv": "^17.2.3",
+    "youtube-dl-exec": "^3.1.19"
+  }
+}
