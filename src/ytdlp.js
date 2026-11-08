@@ -4,6 +4,7 @@ import { mkdir, rm } from 'node:fs/promises';
 import { randomUUID } from 'node:crypto';
 import { join } from 'node:path';
 import { tmpdir } from 'node:os';
+import { t } from './i18n/index.js';
 
 const BASE_DIR = join(tmpdir(), 'lala-music-bot');
 
@@ -22,7 +23,7 @@ function toTarget(input) {
 
 function cleanError(error) {
   const text = String(error?.stderr || error?.message || error).trim();
-  const line = text.split(/\r?\n/).filter(Boolean).at(-1) ?? 'Error de yt-dlp';
+  const line = text.split(/\r?\n/).filter(Boolean).at(-1) ?? t('ytdlp.error_fallback');
   return line.length > 300 ? `${line.slice(0, 300)}...` : line;
 }
 
@@ -46,7 +47,7 @@ export async function resolve(input, signal) {
   try {
     data = JSON.parse(String(result.stdout ?? ''));
   } catch {
-    throw new Error('yt-dlp no devolvió información válida');
+    throw new Error(t('ytdlp.invalid_info'));
   }
 
   const entries = Array.isArray(data.entries) ? data.entries.filter(Boolean) : [];
@@ -85,7 +86,7 @@ export async function download(input, signal) {
   const file = lines.at(-1);
   if (!file || !existsSync(file)) {
     await rm(dir, { recursive: true, force: true });
-    throw new Error('yt-dlp no devolvió un archivo de audio');
+    throw new Error(t('ytdlp.no_audio_file'));
   }
 
   const title = lines.slice(0, -1).join(' ').trim() || input;

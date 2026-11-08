@@ -1,6 +1,7 @@
 import { spawn } from 'node:child_process';
 import { AudioFrame } from '@livekit/rtc-node';
 import { download, removeDownload } from './ytdlp.js';
+import { t } from './i18n/index.js';
 
 const SAMPLE_RATE = 48000;
 const CHANNELS = 1;
@@ -37,7 +38,7 @@ export class MusicPlayer {
 
     this.queue.push(...items);
     void this.run().catch((error) => {
-      this.onError(error, 'Error en el reproductor');
+      this.onError(error, t('player.run_error_context'));
     });
     return position + items.length;
   }
@@ -78,10 +79,10 @@ export class MusicPlayer {
           const { title, file, dir } = await download(item.input, item.controller.signal);
           item.dir = dir;
           if (item.aborted) continue;
-          this.say(`Reproduciendo: ${title}`);
+          this.say(t('player.now_playing', { title }));
           await this.play(file, item);
         } catch (error) {
-          if (!item.aborted) this.onError(error, `Error al reproducir "${item.input}"`);
+          if (!item.aborted) this.onError(error, t('player.item_error_context', { input: item.input }));
         } finally {
           this.current = null;
           await removeDownload(item.dir).catch(() => {});
@@ -152,11 +153,16 @@ export class MusicPlayer {
 
     if (item.aborted) return;
     if (spawnError) {
-      throw new Error(`No se pudo ejecutar ffmpeg (${this.ffmpegPath}): ${spawnError.message}`);
+      throw new Error(t('common.ffmpeg_spawn_failed', {
+        path: this.ffmpegPath,
+        message: spawnError.message,
+      }));
     }
     if (proc.exitCode !== 0 && proc.exitCode !== null) {
       const detail = stderr.trim().split(/\r?\n/).at(-1);
-      throw new Error(`ffmpeg falló${detail ? `: ${detail}` : ''}`);
+      throw new Error(detail
+        ? t('common.ffmpeg_failed_detail', { detail })
+        : t('common.ffmpeg_failed'));
     }
   }
 }

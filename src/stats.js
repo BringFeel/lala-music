@@ -1,33 +1,35 @@
 import { mkdir, readFile, writeFile } from 'node:fs/promises';
 import { dirname } from 'node:path';
+import { t, tPlural } from './i18n/index.js';
 
 function toNumber(value) {
   return Number.isFinite(value) && value > 0 ? Math.floor(value) : 0;
 }
 
+const DURATION_UNITS = [
+  ['year', 365 * 24 * 60 * 60],
+  ['month', 30 * 24 * 60 * 60],
+  ['week', 7 * 24 * 60 * 60],
+  ['day', 24 * 60 * 60],
+  ['hour', 60 * 60],
+  ['minute', 60],
+  ['second', 1],
+];
+
 export function formatDuration(ms) {
   let total = Math.floor(ms / 1000);
-  const units = [
-    ['Año', 'Años', 365 * 24 * 60 * 60],
-    ['Mes', 'Meses', 30 * 24 * 60 * 60],
-    ['Semana', 'Semanas', 7 * 24 * 60 * 60],
-    ['Día', 'Días', 24 * 60 * 60],
-    ['Hora', 'Horas', 60 * 60],
-    ['Minuto', 'Minutos', 60],
-    ['Segundo', 'Segundos', 1],
-  ];
 
   const parts = [];
-  for (const [singular, plural, seconds] of units) {
+  for (const [unit, seconds] of DURATION_UNITS) {
     const value = Math.floor(total / seconds);
     if (!value) continue;
     total -= value * seconds;
-    parts.push(`${value} ${value === 1 ? singular : plural}`);
+    parts.push(tPlural(`duration.${unit}`, value, { value }));
   }
 
-  if (!parts.length) return '0 Segundos';
+  if (!parts.length) return t('duration.zero');
   if (parts.length === 1) return parts[0];
-  return `${parts.slice(0, -1).join(', ')} y ${parts.at(-1)}`;
+  return `${parts.slice(0, -1).join(t('duration.separator'))}${t('duration.conjunction')}${parts.at(-1)}`;
 }
 
 export class Stats {

@@ -1,5 +1,6 @@
 import { formatDuration } from './stats.js';
 import { resolve } from './ytdlp.js';
+import { t, tPlural } from './i18n/index.js';
 
 export function createCommandHandler({
   player,
@@ -24,62 +25,65 @@ export function createCommandHandler({
         case 'play':
         case 'p': {
           if (!argument) {
-            say(`Uso: ${prefix}play <enlace o búsqueda>`);
+            say(t('commands.play.usage', { prefix }));
             return;
           }
           const tracks = await resolve(argument);
-          if (tracks.length === 0) throw new Error('No se encontraron canciones para reproducir');
+          if (tracks.length === 0) throw new Error(t('commands.play.empty'));
           const position = player.enqueueAll(tracks, from);
           if (tracks.length === 1) {
-            say(`Añadido a la cola (#${position}): ${tracks[0].title ?? argument}`);
+            say(t('commands.play.added_one', {
+              position,
+              title: tracks[0].title ?? argument,
+            }));
           } else {
-            say(`Añadidas ${tracks.length} canciones a la cola`);
+            say(t('commands.play.added_many', { count: tracks.length }));
           }
           await stats.recordSong().catch((error) => {
-            console.error(`No se pudieron guardar las estadísticas: ${error.message}`);
+            console.error(t('stats.save_failed', { message: error.message }));
           });
           return;
         }
         case 'skip':
         case 's': {
-          say(player.skip() ? 'Canción saltada' : 'No hay nada reproduciéndose');
+          say(player.skip() ? t('commands.skip.skipped') : t('commands.skip.nothing'));
           return;
         }
         case 'clear':
         case 'c': {
           const count = player.clear();
-          say(count > 0 ? `Cola vaciada (${count} pendiente${count === 1 ? '' : 's'})` : 'La cola ya estaba vacía');
+          say(count > 0 ? tPlural('commands.clear.cleared', count) : t('commands.clear.empty'));
           return;
         }
         case 'stats': {
           const data = stats.snapshot();
           say([
-            `Nombre: ${botName}`,
-            `Tiempo Encendido: ${formatDuration(data.uptimeMs)}`,
-            `Canciones Reproducidas: ${data.songsPlayed}`,
-            `Tiempo en Llamada: ${formatDuration(data.callTimeMs)}`,
+            t('commands.stats.name', { name: botName }),
+            t('commands.stats.uptime', { time: formatDuration(data.uptimeMs) }),
+            t('commands.stats.songs', { song_count: data.songsPlayed }),
+            t('commands.stats.call_time', { time: formatDuration(data.callTimeMs) }),
             '',
-            'Desarrollado por BringFeel ❤️',
+            t('commands.stats.credit'),
           ].join('\n'));
           return;
         }
         case 'help': {
           say([
-            'Comandos disponibles:',
-            `${prefix}play <enlace o búsqueda> (${prefix}p): agrega una canción o playlist a la cola`,
-            `${prefix}skip (${prefix}s): salta la canción actual`,
-            `${prefix}clear (${prefix}c): vacía la cola`,
-            `${prefix}stats: muestra las estadísticas del bot`,
-            `${prefix}help: muestra esta ayuda`,
+            t('commands.help.title'),
+            t('commands.help.play', { prefix }),
+            t('commands.help.skip', { prefix }),
+            t('commands.help.clear', { prefix }),
+            t('commands.help.stats', { prefix }),
+            t('commands.help.help', { prefix }),
           ].join('\n'));
           return;
         }
         default: {
-          say(`Comando desconocido: ${prefix}${name}. Usa ${prefix}help`);
+          say(t('commands.unknown', { prefix, name }));
         }
       }
     } catch (error) {
-      onError(error, `Error procesando comando de ${from}`);
+      onError(error, t('commands.error_context', { from }));
     }
   };
 }

@@ -1,15 +1,16 @@
 import { hkdfSync, pbkdf2Sync } from 'node:crypto';
+import { t } from './i18n/index.js';
 
-const MESSAGES = {
-  access_required: 'El servidor requiere SERVER_PASSWORD',
-  wrong_password: 'Contraseña incorrecta',
-  password_required: 'El canal requiere CHANNEL_PASSWORD',
-  room_not_found: 'Canal no encontrado',
-  room_full: 'El canal está lleno',
-  banned: 'El bot está bloqueado en el servidor o en el canal',
-  not_allowed: 'El bot no tiene permiso para entrar al canal',
-  server_unavailable: 'No se pudo conectar con el servidor',
-  server_error: 'Error interno del servidor',
+const ERROR_KEYS = {
+  access_required: 'lala.errors.access_required',
+  wrong_password: 'lala.errors.wrong_password',
+  password_required: 'lala.errors.password_required',
+  room_not_found: 'lala.errors.room_not_found',
+  room_full: 'lala.errors.room_full',
+  banned: 'lala.errors.banned',
+  not_allowed: 'lala.errors.not_allowed',
+  server_unavailable: 'lala.errors.server_unavailable',
+  server_error: 'lala.errors.server_error',
 };
 
 export class LalaError extends Error {
@@ -47,7 +48,7 @@ export class LalaClient {
         body: body === undefined ? undefined : JSON.stringify(body),
       });
     } catch (error) {
-      throw new LalaError(`${MESSAGES.server_unavailable}: ${error.message}`, 'server_unavailable', 0);
+      throw new LalaError(t('lala.server_unavailable', { detail: error.message }), 'server_unavailable', 0);
     }
 
     const cookies = typeof response.headers.getSetCookie === 'function'
@@ -61,7 +62,10 @@ export class LalaClient {
     if (!response.ok) {
       const data = await response.json().catch(() => ({}));
       const code = data.error ?? 'server_error';
-      throw new LalaError(MESSAGES[code] ?? `${MESSAGES.server_error} (${code})`, code, response.status);
+      const message = ERROR_KEYS[code]
+        ? t(ERROR_KEYS[code])
+        : t('lala.unknown_error', { message: t('lala.errors.server_error'), code });
+      throw new LalaError(message, code, response.status);
     }
 
     return response.json().catch(() => ({}));
@@ -73,7 +77,7 @@ export class LalaClient {
       await this.request('/access', { method: 'POST', body: { password: this.config.serverPassword } });
     } catch (error) {
       if (error.code === 'wrong_password') {
-        throw new LalaError('SERVER_PASSWORD incorrecta', error.code, error.status);
+        throw new LalaError(t('lala.wrong_server_password'), error.code, error.status);
       }
       throw error;
     }
@@ -85,8 +89,8 @@ export class LalaClient {
     const match = list.find((room) => room.displayName === name)
       ?? list.find((room) => room.displayName?.toLowerCase() === name.toLowerCase());
     if (!match) {
-      const available = list.map((room) => room.displayName).filter(Boolean).join(', ') || 'ninguno';
-      throw new LalaError(`Canal "${name}" no encontrado. Canales disponibles: ${available}`, 'room_not_found', 404);
+      const available = list.map((room) => room.displayName).filter(Boolean).join(', ') || t('lala.no_rooms');
+      throw new LalaError(t('lala.room_not_found', { name, available }), 'room_not_found', 404);
     }
     return match;
   }
@@ -95,7 +99,7 @@ export class LalaClient {
     let keys;
     if (room.passwordSalt) {
       if (!this.config.channelPassword) {
-        throw new LalaError('El canal tiene contraseña: define CHANNEL_PASSWORD en .env', 'password_required', 401);
+        throw new LalaError(t('lala.channel_password_missing'), 'password_required', 401);
       }
       keys = deriveRoomKeys(this.config.channelPassword, room.passwordSalt);
     }
@@ -112,7 +116,7 @@ export class LalaClient {
       });
     } catch (error) {
       if (error.code === 'wrong_password' || error.code === 'password_required') {
-        throw new LalaError(`No se pudo entrar al canal: ${error.message}`, error.code, error.status);
+        throw new LalaError(t('lala.join_failed', { message: error.message }), error.code, error.status);
       }
       throw error;
     }

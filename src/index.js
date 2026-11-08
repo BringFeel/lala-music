@@ -14,6 +14,7 @@ import { MusicPlayer } from './player.js';
 import { createCommandHandler } from './commands.js';
 import { loadAvatar } from './avatar.js';
 import { Stats } from './stats.js';
+import { t, tPlural } from './i18n/index.js';
 
 const CHECK_INTERVAL_MS = 5000;
 const ALONE_TIMEOUT_MS = 30000;
@@ -39,13 +40,13 @@ async function waitForRoom(lala, isClosing, selfIdentity) {
       roomInfo = await lala.findRoom(config.channelName);
     } catch (error) {
       if (error.code === 'room_not_found') {
-        const status = `El canal "${config.channelName}" todavía no existe. Esperando...`;
+        const status = t('index.room.waiting_missing', { channel: config.channelName });
         if (status !== lastStatus) {
           console.log(status);
           lastStatus = status;
         }
       } else if (error.code === 'server_unavailable' || error.code === 'server_error') {
-        const status = `No se pudo consultar el canal: ${error.message}. Reintentando...`;
+        const status = t('index.room.query_failed', { message: error.message });
         if (status !== lastStatus) {
           console.error(status);
           lastStatus = status;
@@ -59,11 +60,11 @@ async function waitForRoom(lala, isClosing, selfIdentity) {
 
     const users = countUsers(roomInfo, selfIdentity);
     if (users > 0) {
-      console.log(`Canal "${roomInfo.displayName}": ${users} usuario${users === 1 ? '' : 's'}. Conectando...`);
+      console.log(tPlural('index.room.users', users, { channel: roomInfo.displayName }));
       return roomInfo;
     }
 
-    const status = `El canal "${roomInfo.displayName}" está vacío. Esperando usuarios...`;
+    const status = t('index.room.empty', { channel: roomInfo.displayName });
     if (status !== lastStatus) {
       console.log(status);
       lastStatus = status;
@@ -89,7 +90,7 @@ async function startSession(lala, roomInfo, avatar, stats) {
       try {
         await room.localParticipant.setAttributes({ 'lala.avatar': avatar });
       } catch (error) {
-        console.error(`No se pudo establecer la foto de perfil: ${error.message}`);
+        console.error(t('index.avatar.set_failed', { message: error.message }));
       }
     }
     source = new AudioSource(48000, 1);
@@ -100,7 +101,7 @@ async function startSession(lala, roomInfo, avatar, stats) {
     );
   } catch (error) {
     await stats.endCall().catch((statsError) => {
-      console.error(`No se pudieron guardar las estadísticas: ${statsError.message}`);
+      console.error(t('stats.save_failed', { message: statsError.message }));
     });
     await room.disconnect().catch(() => {});
     throw error;
@@ -112,9 +113,11 @@ async function startSession(lala, roomInfo, avatar, stats) {
   };
 
   const reportError = (error, context) => {
-    console.error(context ? `${context}: ${error.message}` : error.message);
+    console.error(context
+      ? t('common.context_message', { context, message: error.message })
+      : error.message);
     if (error?.stack) console.error(error.stack);
-    say('Ocurrió un error inesperado.');
+    say(t('index.unexpected_error'));
   };
 
   const player = new MusicPlayer({ source, say, ffmpegPath: config.ffmpegPath, onError: reportError });
@@ -132,7 +135,10 @@ async function startSession(lala, roomInfo, avatar, stats) {
       const text = await reader.readAll();
       await handle(text, participant.identity);
     } catch (error) {
-      console.error(`Error leyendo mensaje de ${participant.identity}: ${error.message}`);
+      console.error(t('index.chat.read_failed', {
+        identity: participant.identity,
+        message: error.message,
+      }));
     }
   });
 
@@ -159,7 +165,7 @@ async function startSession(lala, roomInfo, avatar, stats) {
     finishResult = (async () => {
       await player.stop();
       await stats.endCall().catch((statsError) => {
-        console.error(`No se pudieron guardar las estadísticas: ${statsError.message}`);
+        console.error(t('stats.save_failed', { message: statsError.message }));
       });
       await room.disconnect().catch(() => {});
       await source.close().catch(() => {});
@@ -174,12 +180,12 @@ async function startSession(lala, roomInfo, avatar, stats) {
 
   const startAloneTimer = () => {
     if (ended || aloneTimer) return;
-    console.log('El bot está solo en el canal. Se desconectará en 30 segundos si no entra nadie.');
+    console.log(t('index.lonely.start'));
     aloneTimer = setTimeout(() => {
       aloneTimer = null;
       if (ended) return;
       if (room.remoteParticipants.size > 0) return;
-      void stop('Desconectado: el bot estuvo solo 30 segundos.');
+      void stop(t('index.lonely.disconnected'));
     }, ALONE_TIMEOUT_MS);
   };
 
@@ -188,7 +194,7 @@ async function startSession(lala, roomInfo, avatar, stats) {
     if (room.remoteParticipants.size > 0) {
       if (aloneTimer) {
         clearAloneTimer();
-        console.log('Hay usuarios en el canal. Se canceló la desconexión.');
+        console.log(t('index.lonely.cancelled'));
       }
       return;
     }
@@ -196,12 +202,12 @@ async function startSession(lala, roomInfo, avatar, stats) {
   };
 
   room.on(RoomEvent.ParticipantConnected, (participant) => {
-    console.log(`Entró ${participant.name || participant.identity} al canal.`);
+    console.log(t('index.participant.joined', { name: participant.name || participant.identity }));
     updateAlone();
   });
 
   room.on(RoomEvent.ParticipantDisconnected, (participant) => {
-    console.log(`Salió ${participant.name || participant.identity} del canal.`);
+    console.log(t('index.participant.left', { name: participant.name || participant.identity }));
     updateAlone();
   });
 
@@ -213,17 +219,25 @@ async function startSession(lala, roomInfo, avatar, stats) {
     void finish({
       fatal: removed || duplicate,
       message: removed
-        ? 'El bot fue expulsado del canal.'
+        ? t('index.disconnect.removed')
         : duplicate
-          ? 'Hay otra instancia del bot conectada con la misma identidad.'
-          : `Desconectado del canal (motivo: ${DisconnectReason[reason] ?? reason}).`,
+          ? t('index.disconnect.duplicate')
+          : t('index.disconnect.generic', { reason: DisconnectReason[reason] ?? reason }),
     });
   });
 
   initialCheckTimer = setTimeout(updateAlone, 1000);
 
-  console.log(`Conectado a "${roomInfo.displayName}" como ${config.botName}`);
-  console.log(`Comandos: ${config.commandPrefix}play <enlace o búsqueda>, ${config.commandPrefix}skip, ${config.commandPrefix}clear, ${config.commandPrefix}stats, ${config.commandPrefix}help`);
+  console.log(t('index.connected', { channel: roomInfo.displayName, bot: config.botName }));
+  console.log(t('index.commands_ready', {
+    commands: t('index.commands_list', {
+      play: t('commands.play.syntax', { prefix: config.commandPrefix }),
+      skip: t('commands.skip.syntax', { prefix: config.commandPrefix }),
+      clear: t('commands.clear.syntax', { prefix: config.commandPrefix }),
+      stats: t('commands.stats.syntax', { prefix: config.commandPrefix }),
+      help: t('commands.help.syntax', { prefix: config.commandPrefix }),
+    }),
+  }));
 
   return { identity: access.identity, handle, stop, done };
 }
@@ -233,10 +247,10 @@ async function main() {
   await lala.login();
 
   const avatar = await loadAvatar(config.ffmpegPath, config.avatarPath).catch((error) => {
-    console.error(`No se pudo preparar la foto de perfil: ${error.message}`);
+    console.error(t('index.avatar.prepare_failed', { message: error.message }));
     return null;
   });
-  if (avatar) console.log('Foto de perfil cargada.');
+  if (avatar) console.log(t('index.avatar.loaded'));
 
   const stats = await Stats.create(config.statsPath);
 
@@ -250,12 +264,12 @@ async function main() {
     const text = line.trim();
     if (!text) return;
     if (!session) {
-      console.log('El bot no está conectado al canal.');
+      console.log(t('index.console.not_connected'));
       return;
     }
     void session.handle(
       text.startsWith(config.commandPrefix) ? text : `${config.commandPrefix}${text}`,
-      'consola',
+      t('index.console.identity'),
     );
   });
 
@@ -263,7 +277,7 @@ async function main() {
     if (closing) return;
     closing = true;
     rl.close();
-    if (session) await session.stop('Cerrando bot.');
+    if (session) await session.stop(t('index.shutdown.closing'));
     process.exit(0);
   };
 
@@ -281,7 +295,7 @@ async function main() {
       if (closing) break;
       if (isFatal(error)) throw error;
       if (error.message !== lastConnectError) {
-        console.error(`No se pudo conectar: ${error.message}`);
+        console.error(t('index.connect_failed', { message: error.message }));
         lastConnectError = error.message;
       }
       await sleep(CHECK_INTERVAL_MS);
