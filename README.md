@@ -4,6 +4,8 @@ Bot de música para canales de voz de **Lala**. Se conecta como un participante 
 
 Puede ejecutarse localmente con Node.js o dentro de Docker. Está pensado para un solo canal por instancia.
 
+Documentación en inglés: [README.en.md](README.en.md).
+
 ## Índice
 
 - [Características](#características)
@@ -11,6 +13,7 @@ Puede ejecutarse localmente con Node.js o dentro de Docker. Está pensado para u
 - [Instalación local](#instalación-local)
 - [Configuración](#configuración)
 - [Comandos](#comandos)
+- [Traducciones](#traducciones)
 - [Estadísticas](#estadísticas)
 - [Foto de perfil](#foto-de-perfil)
 - [Docker](#docker)
@@ -28,9 +31,11 @@ Puede ejecutarse localmente con Node.js o dentro de Docker. Está pensado para u
 - Vuelve a esperar usuarios y se reconecta cuando alguien entra de nuevo.
 - Reproduce audio de YouTube y de cualquier sitio soportado por `yt-dlp`.
 - Acepta enlaces directos o búsquedas por texto (`ytsearch1:`).
+- Soporta enlaces de playlist: agrega todas sus canciones a la cola.
 - Cola de reproducción en memoria con soporte para saltar y vaciar.
 - Comandos por chat de Lala y por consola.
 - Prefijo de comandos configurable mediante `COMMAND_PREFIX`.
+- Mensajes traducibles al español y al inglés mediante `LANGUAGE`, con placeholders para los datos dinámicos.
 - Comando `stats` con tiempo encendido, canciones reproducidas y tiempo en llamada.
 - Estadísticas persistentes en `stats.json`.
 - Soporte para servidores con contraseña de acceso.
@@ -98,6 +103,7 @@ Toda la configuración se carga desde `music-bot/.env` mediante `dotenv`. Los ca
 | `SERVER_PASSWORD` | No | Vacío | Contraseña de acceso al servidor Lala, si está habilitada. |
 | `CHANNEL_NAME` | Sí | — | Nombre visible del canal de voz. Se busca primero de forma exacta y luego sin distinguir mayúsculas/minúsculas. |
 | `BOT_NAME` | No | `Lala Music Bot` | Nombre con el que el bot aparece en el canal. |
+| `LANGUAGE` | No | `es` | Idioma de los mensajes: `es` o `en`. Los valores que empiezan con `en` usan inglés; cualquier otro valor usa español. |
 | `COMMAND_PREFIX` | No | `!` | Prefijo que deben usar los comandos. Por ejemplo, `?` hace que los comandos sean `?play`, `?skip`, etc. |
 | `CHANNEL_PASSWORD` | No | Vacío | Contraseña del canal. Es obligatoria si el canal tiene contraseña. También se usa para derivar la clave E2EE. |
 | `FFMPEG_PATH` | No | `ffmpeg` | Comando o ruta absoluta del ejecutable de `ffmpeg`. |
@@ -111,6 +117,7 @@ SERVER_URL=https://lala.example.com
 SERVER_PASSWORD=
 CHANNEL_NAME=General
 BOT_NAME=Lala Music Bot
+LANGUAGE=es
 COMMAND_PREFIX=!
 CHANNEL_PASSWORD=
 FFMPEG_PATH=ffmpeg
@@ -122,6 +129,7 @@ Notas:
 
 - `SERVER_PASSWORD` y `CHANNEL_PASSWORD` pueden quedar vacías si no se usan.
 - `SERVER_URL` puede terminar con `/`; el bot lo elimina.
+- `LANGUAGE` acepta `es` o `en`. Si no se define o el valor no empieza con `en`, se usa español.
 - Si `STATE_DIR` no se define, `.device-id` y `stats.json` se guardan junto a `package.json`.
 - El `.device-id` identifica al bot ante Lala. Conviene conservarlo entre reinicios, especialmente en Docker.
 - `AVATAR_PATH` contiene sólo el nombre y la extensión del archivo. La imagen debe estar dentro de `music-bot/avatar/`.
@@ -138,7 +146,7 @@ En el chat, el mensaje debe comenzar con el prefijo configurado. En la consola, 
 
 | Comando | Alias | Descripción |
 | --- | --- | --- |
-| `!play <enlace o búsqueda>` | `!p` | Agrega una canción a la cola. Si el argumento es una URL HTTP/HTTPS, se usa directamente. Si es texto, se busca con `ytsearch1:` y se usa el primer resultado. |
+| `!play <enlace o búsqueda>` | `!p` | Agrega una canción o playlist a la cola. Si el argumento es una URL HTTP/HTTPS de una playlist, se agregan todas sus canciones. Si es un video, se agrega sólo ese video. Si es texto, se busca con `ytsearch1:` y se usa el primer resultado. |
 | `!skip` | `!s` | Salta la canción actual. Si se está descargando, cancela la descarga; si se está reproduciendo, detiene `ffmpeg`. |
 | `!clear` | `!c` | Vacía la cola de canciones pendientes. No detiene la canción que se está reproduciendo. |
 | `!stats` | — | Muestra el nombre del bot, tiempo encendido, canciones reproducidas y tiempo acumulado en llamada. |
@@ -161,8 +169,37 @@ Comportamiento:
 - Un mensaje que no comienza con `COMMAND_PREFIX` se ignora en el chat.
 - Cualquier participante del canal puede usar los comandos; no hay sistema de permisos por rol.
 - Las respuestas del bot se envían al chat del canal y también se muestran en la consola.
+- Si ocurre un error al resolver el enlace o al reproducir, el chat recibe sólo `Ocurrió un error inesperado.` y el detalle se registra en la consola.
 - Un comando desconocido responde con una sugerencia para usar el comando de ayuda con el prefijo configurado.
 - La consola sólo está disponible mientras el proceso tiene una entrada estándar interactiva; en Docker lo normal es usar el chat.
+
+## Traducciones
+
+Todos los mensajes del bot están centralizados en `src/i18n/`. El español (`src/i18n/es.js`) es el idioma por defecto y el inglés (`src/i18n/en.js`) es la traducción completa.
+
+El idioma se elige con `LANGUAGE`:
+
+```env
+LANGUAGE=es
+```
+
+o:
+
+```env
+LANGUAGE=en
+```
+
+Los valores que empiezan con `en` usan inglés; cualquier otro valor usa español.
+
+Los mensajes con datos usan placeholders entre llaves. Por ejemplo:
+
+```text
+Canciones Reproducidas: {song_count}
+```
+
+Al enviar el mensaje, el bot reemplaza `{song_count}` por el valor real. Los mensajes con singular y plural usan claves separadas (`...one` y `...other`), de modo que cada idioma conserva su gramática.
+
+Para añadir un idioma nuevo, crear un archivo con las mismas claves que `es.js` y registrarlo en `src/i18n/index.js`.
 
 ## Estadísticas
 
@@ -176,6 +213,8 @@ Tiempo en Llamada: 3 Horas, 15 Minutos y 7 Segundos
 
 Desarrollado por BringFeel ❤️
 ```
+
+El texto de `stats` se muestra en el idioma configurado en `LANGUAGE`; con `LANGUAGE=en` los rótulos y las unidades de tiempo aparecen en inglés.
 
 Los datos se guardan en `stats.json` dentro de `STATE_DIR`. En Docker, el archivo queda en `/data/stats.json` gracias al volumen persistente.
 
@@ -309,7 +348,11 @@ music-bot/
 │   ├── ytdlp.js        Descarga de audio con yt-dlp y limpieza de temporales
 │   ├── commands.js     Parser, comandos, prefijo dinámico y ayuda
 │   ├── stats.js        Estadísticas persistentes y formato de duración
-│   └── avatar.js       Procesamiento de la foto de perfil
+│   ├── avatar.js       Procesamiento de la foto de perfil
+│   └── i18n/           Sistema de traducciones
+│       ├── index.js    Idioma activo, placeholders y plurales
+│       ├── es.js       Mensajes en español
+│       └── en.js       Mensajes en inglés
 ├── avatar/             Imágenes de perfil; `.gitkeep` mantiene la carpeta
 ├── .env.example        Plantilla de configuración
 ├── .dockerignore       Archivos excluidos del contexto de Docker
@@ -318,7 +361,8 @@ music-bot/
 ├── docker-compose.yml  Servicio Docker con volumen persistente
 ├── package.json        Metadatos, dependencias y script de inicio
 ├── package-lock.json   Lockfile de dependencias
-└── README.md           Esta documentación
+├── README.md           Documentación en español
+└── README.en.md        Documentación en inglés
 ```
 
 Archivos generados en tiempo de ejecución:
@@ -422,8 +466,18 @@ Los mensajes entrantes se leen mediante un `TextStreamHandler` de LiveKit suscri
 - El comando `help` lista todos los comandos con el prefijo activo.
 - Las respuestas se envían con `localParticipant.sendText(text, { topic: 'lk.chat' })`.
 - Los comandos de consola se normalizan agregando el prefijo si falta.
+- Todos los textos se obtienen de `src/i18n/` con `t(clave, datos)`; los datos se insertan mediante placeholders como `{song_count}`.
 
-### 8. Estadísticas
+### 8. Traducciones
+
+`src/i18n/index.js` mantiene el idioma activo y expone `t()` y `tPlural()`.
+
+- `config.js` carga `.env`, normaliza `LANGUAGE` y llama a `setLanguage()` antes de validar las variables obligatorias.
+- `t(clave, datos)` busca la cadena en el diccionario del idioma activo, usa español como respaldo y reemplaza los placeholders `{nombre}`.
+- `tPlural(base, cantidad, datos)` elige la clave `...one` o `...other` según la cantidad.
+- Los diccionarios `es.js` y `en.js` deben tener exactamente las mismas claves.
+
+### 9. Estadísticas
 
 `src/stats.js` carga `stats.json` al iniciar. Si no existe o no se puede leer, comienza con valores en cero.
 
@@ -434,7 +488,7 @@ Los mensajes entrantes se leen mediante un `TextStreamHandler` de LiveKit suscri
 - Las escrituras se serializan para evitar que dos guardados simultáneos dejen el archivo incompleto.
 - El tiempo se formatea con años, meses, semanas, días, horas, minutos y segundos, omitiendo las unidades en cero.
 
-### 9. Cierre
+### 10. Cierre
 
 Con `SIGINT` o `SIGTERM`, el bot:
 
@@ -470,11 +524,12 @@ Se reintentan sin terminar el proceso:
 
 ### Errores de reproducción
 
-Si falla `yt-dlp`, `ffmpeg` o la descarga:
+Si falla la resolución del enlace, `yt-dlp`, `ffmpeg` o la descarga:
 
-- Se envía un mensaje de error al chat.
+- El chat recibe sólo `Ocurrió un error inesperado.`, traducido según `LANGUAGE`.
+- El detalle real del error se registra en la consola.
 - La canción actual se descarta.
-- El bot continúa con la siguiente canción de la cola.
+- El bot continúa con la siguiente canción de la cola, incluso si una canción de una playlist falla.
 
 ### Avatar
 
