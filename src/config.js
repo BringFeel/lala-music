@@ -3,13 +3,15 @@ import { randomUUID } from 'node:crypto';
 import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { basename, dirname, join } from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { setLanguage, t } from './i18n/index.js';
 
 const rootDir = join(dirname(fileURLToPath(import.meta.url)), '..');
 dotenv.config({ path: join(rootDir, '.env'), quiet: true });
+const language = setLanguage(process.env.LANGUAGE);
 
 function required(name) {
   const value = process.env[name]?.trim();
-  if (!value) throw new Error(`Falta la variable ${name} en .env`);
+  if (!value) throw new Error(t('config.missing_var', { name }));
   return value;
 }
 
@@ -35,6 +37,7 @@ function loadDeviceId() {
 }
 
 export const config = {
+  language,
   serverUrl: required('SERVER_URL').replace(/\/+$/, ''),
   serverPassword: optional('SERVER_PASSWORD'),
   channelName: required('CHANNEL_NAME'),
